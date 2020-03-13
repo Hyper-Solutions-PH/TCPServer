@@ -15,7 +15,7 @@ namespace TCPServer
         static void Main(string[] args)
         {
             TcpListener server = new TcpListener(IPAddress.Any, 9005);
-            // we set our IP address as server's address, and we also set the port: 9999
+            // we set our IP address as server's address, and we also set the port: 9005
 
             server.Start();  // this will start the server
 
@@ -28,9 +28,12 @@ namespace TCPServer
 
                 while (client.Connected)  //while the client is connected, we look for incoming messages
                 {
-                    byte[] msg = new byte[1024];     //the messages arrive as byte array
-                    ns.Read(msg, 0, msg.Length);   //the same networkstream reads the message sent by the client
-                    var str = Encoding.Default.GetString(msg);
+                    byte[] headerData = new byte[Header.RawHeader.Size];
+                    ns.Read(headerData, 0, headerData.Length);
+                    var header = new Header(headerData);
+                    byte[] body = new byte[header.TcpPayloadLengthOrUdpSequenceNumber];     //the messages arrive as byte array
+                    ns.Read(body, 0, body.Length);   //the same networkstream reads the message sent by the client
+                    var str = Encoding.Default.GetString(body);
 
                     Console.WriteLine(str); //now , we write the message as string
                 }
