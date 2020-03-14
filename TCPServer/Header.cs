@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -41,6 +42,47 @@ namespace TCPServer
             }
         }
 
+        private Header() { }
+        
+        public Header Clone()
+        {
+            return new Header
+            {
+                VersionNumber = VersionNumber,
+                Padding = Padding,
+                ImportantEvent = ImportantEvent,
+                ContributorSourceCount = ContributorSourceCount,
+                PayloadType = PayloadType,
+                SynchronizationSourceIdentifier = SynchronizationSourceIdentifier,
+                TcpPayloadLengthOrUdpSequenceNumber = TcpPayloadLengthOrUdpSequenceNumber,
+                Reserved = Reserved
+            };
+        }
+        public byte[] GetRawHeader()
+        {
+            var rawHeader = WriteToRawHeader();
+            if (BitConverter.IsLittleEndian)
+            {
+                //since network is big endian we have to correct for it
+                rawHeader.Packed = (uint)IPAddress.HostToNetworkOrder((int)rawHeader.Packed);
+                rawHeader.TcpPayloadLengthOrUdpSequenceNumber = IPAddress.HostToNetworkOrder(rawHeader.TcpPayloadLengthOrUdpSequenceNumber);
+                rawHeader.Reserved = IPAddress.HostToNetworkOrder(rawHeader.Reserved);
+            }
+            byte[] rawData = new byte[RawHeader.Size];
+            using (var ms = new MemoryStream())
+            {
+                using (var bw = new BinaryWriter(ms, Encoding.UTF8))
+                {
+                    bw.Write(rawHeader.Packed);
+                    bw.Write(rawHeader.TcpPayloadLengthOrUdpSequenceNumber);
+                    bw.Write(rawHeader.Reserved);
+                }
+                rawData = ms.ToArray();
+            }
+            return rawData;
+        }
+
+
         [StructLayout(LayoutKind.Sequential, Pack = 1, Size = Size)]
         public unsafe struct RawHeader
         {
@@ -66,6 +108,20 @@ namespace TCPServer
             ImportantEvent = Convert.ToBoolean((rawHeader.Packed & EventMask) >> EventOffset);
             Padding = Convert.ToBoolean((rawHeader.Packed & PaddingMask) >> PaddingOffset);
             VersionNumber = (int)((rawHeader.Packed & VersionNumberMask) >> VersionNumberOffset);
+        }
+
+        private RawHeader WriteToRawHeader()
+        {
+            var rawHeader = new RawHeader();
+            rawHeader.TcpPayloadLengthOrUdpSequenceNumber = TcpPayloadLengthOrUdpSequenceNumber;
+            rawHeader.Reserved = Reserved;
+            rawHeader.Packed = (uint)SynchronizationSourceIdentifier;
+            rawHeader.Packed |= ((uint)PayloadType << PayloadTypeOffset);
+            rawHeader.Packed |= ((uint)ContributorSourceCount << CsrcCountOffset);
+            rawHeader.Packed |= (Convert.ToUInt32(ImportantEvent) << EventOffset);
+            rawHeader.Packed |= (Convert.ToUInt32(Padding) << PaddingOffset);
+            rawHeader.Packed |= ((uint)VersionNumber << VersionNumberOffset);
+            return rawHeader;
         }
         /* _________________________________________________________________
          * |    1-2 bit   | 3 bit |4 bit |  5-8 bit |   9-16bit  | 17-32 bit|
