@@ -11,7 +11,7 @@ using Newtonsoft.Json.Linq;
 
 namespace TCPServer
 {
-    class Program
+    class Server
     {
         static Dictionary<Guid, Device> deviceDictionary = new Dictionary<Guid, Device>();
         static void Main(string[] args)
@@ -33,9 +33,9 @@ namespace TCPServer
                     byte[] headerData = new byte[Header.RawHeader.Size];
                     ns.Read(headerData, 0, headerData.Length);
                     var header = new Header(headerData);
-                    byte[] body = new byte[header.TcpPayloadLengthOrUdpSequenceNumber];     //the messages arrive as byte array
-                    ns.Read(body, 0, body.Length);   //the same networkstream reads the message sent by the client
-                    var str = Encoding.Default.GetString(body);
+                    byte[] bodyData = new byte[header.TcpPayloadLengthOrUdpSequenceNumber];     //the messages arrive as byte array
+                    ns.Read(bodyData, 0, bodyData.Length);   //the same networkstream reads the message sent by the client
+                    var str = Encoding.Default.GetString(bodyData);
                     if(header.PayloadType == PayloadType.Json)
                     {
                         var parsedObject = JObject.Parse(str);
@@ -47,6 +47,14 @@ namespace TCPServer
                             deviceDictionary.Add(session, new Device(dsno));
                             Respond(ns, session, header);
                         }
+                        else if( operation == "KEEPALIVE")
+                        {
+                            //KEEPALIVE can respond by simply sending back frame it got
+                            var response = new byte[headerData.Length + bodyData.Length];
+                            headerData.CopyTo(response, 0);
+                            bodyData.CopyTo(response, headerData.Length);
+                            Respond(ns, response);
+                        }
                     }
                     Console.WriteLine(str); //now , we write the message as string
                 }
@@ -57,7 +65,12 @@ namespace TCPServer
         {
             var body = new ConnectBody(guid);
             var response = new ResponseFrame(header, body);
-            ns.Write(response.Serialize());    
+            Respond(ns, response.Serialize());  
+        }
+
+        static void Respond(NetworkStream ns, byte[] response)
+        {
+            ns.Write(response);
         }
     }
 }
