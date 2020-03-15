@@ -13,7 +13,12 @@ namespace TCPServer
         readonly public string operation;
         [JsonProperty("SESSION")]
         public string session { get; set; }
-        protected Body(string operation) => this.operation = operation;
+        protected Body(string operation, Guid session)
+        {
+            this.operation = operation;
+            this.session = session.ToString();
+        }
+
     }
 
     class ConnectBody : Body
@@ -29,9 +34,12 @@ namespace TCPServer
             {"VCODE", "" },
             {"S0", "" }
         };
-        public ConnectBody(Guid session) : base("CONNECT")
-        {
-            this.session = session.ToString();
-        }
+        public ConnectBody(Guid session) : base("CONNECT", session) { }
+
+    }
+
+    class KeepAliveBody : Body
+    {
+        public KeepAliveBody(Guid session) : base("KEEPALIVE", session) { }
     }
 }

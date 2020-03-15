@@ -10,9 +10,9 @@ namespace TCPServer
         Header header;
         Body body;
 
-        public ResponseFrame(Header header, Body body)
+        public ResponseFrame(Header header, Body body, bool cloneHeader = true)
         {
-            this.header = header.Clone();
+            this.header = cloneHeader ? header.Clone() : header;
             this.body = body;
 
         }
