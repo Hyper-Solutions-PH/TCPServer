@@ -1,20 +1,13 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-
-using System.Net;      //required
-using System.Net.Sockets;    //required
-using System.Runtime.InteropServices;
-using Newtonsoft.Json;
+using System.Net;      
+using System.Net.Sockets;    
 using Newtonsoft.Json.Linq;
-using System.Timers;
 
 namespace TCPServer
 {
     class Server
     {
-        static Dictionary<Guid, Device> deviceDictionary = new Dictionary<Guid, Device>();
         static void Main(string[] args)
         {
             TcpListener server = new TcpListener(IPAddress.Any, 9005);
@@ -24,22 +17,27 @@ namespace TCPServer
 
             while (true)   //we wait for a connection
             {
-                TcpClient client = server.AcceptTcpClient();  //if a connection exists, the server will accept it
+                server.BeginAcceptTcpClient(new AsyncCallback(HandleClientCallback), server);  //if a connection exists, the server will accept it
+            }
+        }
 
-                NetworkStream ns = client.GetStream(); //networkstream is used to send/receive messages
+        static void HandleClientCallback(IAsyncResult ar)
+        {
+            TcpListener server = (TcpListener)ar.AsyncState;
+            TcpClient client = server.EndAcceptTcpClient(ar);
+            NetworkStream ns = client.GetStream(); //networkstream is used to send/receive messages
 
-                while (client.Connected)  //while the client is connected, we look for incoming messages
+            while (client.Connected)  //while the client is connected, we look for incoming messages
+            {
+                var header = ReadIncomingHeader(ns);
+
+                if (header.PayloadType == PayloadType.Json)
                 {
-                    var header = ReadIncomingHeader(ns);
-                    
-                    if(header.PayloadType == PayloadType.Json)
-                    {
-                        HandleJsonRequest(ns, header);
-                    }
-                    else if(header.PayloadType == PayloadType.Binary)
-                    {
-                        InterpretGps(ns, header);
-                    }
+                    HandleJsonRequest(ns, header);
+                }
+                else if (header.PayloadType == PayloadType.Binary)
+                {
+                    InterpretGps(ns, header);
                 }
             }
         }
@@ -64,10 +62,8 @@ namespace TCPServer
             var operation = (string)jsonBody["OPERATION"];
             var session = new Guid((string)jsonBody["SESSION"]);
 
-            if (operation == "CONNECT" && jsonBody["PARAMETER"] != null)
+            if (operation == "CONNECT")
             {
-                var dsno = (string)jsonBody["PARAMETER"]["DSNO"];
-                deviceDictionary.Add(session, new Device(dsno));
                 Respond<ConnectBody>(ns, session, header);
             }
             else if (operation == "KEEPALIVE")
@@ -93,14 +89,7 @@ namespace TCPServer
         {
             var body = (BodyType)Activator.CreateInstance(typeof(BodyType), new object[] { guid });
             var response = new ResponseFrame(header, body);
-            Respond(ns, response.Serialize());  
+            ns.Write(response.Serialize());
         }
-
-        static void Respond(NetworkStream ns, byte[] response)
-        {
-            ns.Write(response);
-            Console.WriteLine(Encoding.Default.GetString(response));
-        }
-
     }
 }
