@@ -35,9 +35,9 @@ namespace TCPServer
                     var header = new Header(headerData);
                     byte[] bodyData = new byte[header.TcpPayloadLengthOrUdpSequenceNumber];     //the messages arrive as byte array
                     ns.Read(bodyData, 0, bodyData.Length);   //the same networkstream reads the message sent by the client
-                    var str = Encoding.Default.GetString(bodyData);
                     if(header.PayloadType == PayloadType.Json)
                     {
+                        var str = Encoding.Default.GetString(bodyData);
                         var parsedObject = JObject.Parse(str);
                         var operation = (string)parsedObject["OPERATION"];
                         if ( operation == "CONNECT" && parsedObject["PARAMETER"] != null)
@@ -56,7 +56,12 @@ namespace TCPServer
                             Respond(ns, response);
                         }
                     }
-                    Console.WriteLine(str); //now , we write the message as string
+                    else if(header.PayloadType == PayloadType.Binary)
+                    {
+                        var gps = new GPS(bodyData);
+                        Console.WriteLine(gps);
+                    }
+                    
                 }
             }
         }
