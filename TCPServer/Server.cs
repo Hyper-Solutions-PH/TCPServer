@@ -59,16 +59,23 @@ namespace TCPServer
         {
             byte[] bodyData = GetIncomingBody(ns, header);
             var jsonBody = ReadJsonBody(bodyData);
-            var operation = (string)jsonBody["OPERATION"];
-            var session = new Guid((string)jsonBody["SESSION"]);
+            try
+            {
+                var operation = (OperationType)Enum.Parse(typeof(OperationType), (string)jsonBody["OPERATION"]);
+                var session = new Guid((string)jsonBody["SESSION"]);
 
-            if (operation == "CONNECT")
-            {
-                Respond<ConnectBody>(ns, session, header);
+                if (operation == OperationType.CONNECT)
+                {
+                    Respond<ConnectBody>(ns, session, header);
+                }
+                else if (operation == OperationType.KEEPALIVE)
+                {
+                    Respond<KeepAliveBody>(ns, session, header);
+                }
             }
-            else if (operation == "KEEPALIVE")
+            catch(Exception e)
             {
-                Respond<KeepAliveBody>(ns, session, header);
+                Console.WriteLine($"Invalid operation! {e.Message}");
             }
         }
 
@@ -91,5 +98,7 @@ namespace TCPServer
             var response = new ResponseFrame(header, body);
             ns.Write(response.Serialize());
         }
+
+        enum OperationType { UNSUPPORTED = 0, CONNECT, KEEPALIVE }
     }
 }

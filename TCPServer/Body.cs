@@ -26,6 +26,7 @@ namespace TCPServer
         [JsonProperty("RESPONSE")]
         readonly Dictionary<string, dynamic> response = new Dictionary<string, dynamic>
         {
+            //Doc does not specify how these fields should be filled so I simply took the example
             {"DEVTYPE", 1 },
             {"ERRORCODE", 0 },
             {"ERRORCAUSE", "" },
